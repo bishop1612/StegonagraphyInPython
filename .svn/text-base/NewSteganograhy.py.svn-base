@@ -1,0 +1,109 @@
+from Steganography import *
+#from message import *
+
+class NewSteganography(Steganography):
+    def __init__(self,imagePath,direction='horizontal'):
+        Steganography.__init__(self,imagePath,direction)
+
+    def wipeMedium(self):
+        """
+        Function to embed an xml message
+        into the image
+        :param message: Xml Message
+        :param targetImagePath: Intended file path
+        :return:
+        """
+        if self.dir == "vertical":
+            self.im = self.im.transpose(Image.TRANSPOSE)
+
+        pixels = list(self.im.getdata())
+        for i in range(0,len(pixels),1):
+            if pixels[i] % 2 != 0:
+                pixels[i] -= 1
+
+        width = int(self.im.size[0])
+        height = int(self.im.size[1])
+        #Building the image
+        encoded = base64.b64encode(bytes(pixels))
+        encoded_str = str(encoded,"UTF-8")
+        decoded = base64.b64decode(encoded_str)
+        new = Image.frombytes('L',[width,height],decoded)
+        if self.dir == "vertical":
+            new = new.transpose(Image.TRANSPOSE)
+        new.save(self.path)
+
+    def checkIfMessageExists(self):
+        """
+        Function to extract xml message
+        from any medium
+        :return: xml string
+        """
+        if self.dir == "vertical":
+            self.im = self.im.transpose(Image.TRANSPOSE)
+        pixels = list(self.im.getdata())
+
+        #Generating the Binary stream
+        i = 0
+        for ind in pixels:
+            if ind % 2 == 0:
+                pixels[i] = '0'
+            else:
+                pixels[i] = '1'
+            i += 1
+            if i == 8000:
+                break
+
+        i = 0
+
+        new_list = []
+        newstr = ""
+
+        #Appending the binary stream into a string
+        c = 1
+        for ind in pixels:
+            newstr += ind
+            if c == 8:
+                new_list.append(newstr)
+                newstr = ""
+                c = 0
+
+            c += 1
+            i += 1
+            if i == 8000:
+                break
+
+        i = 0
+        sum = 0
+        k = 0
+        new_str = ""
+
+        #Generating the message
+        for byt in new_list:
+            for bit in byt:
+                sum += int(bit)*2**(7-k)
+                k += 1
+            new_list[i] = chr(int(sum))
+            new_str += new_list[i]
+            k = 0
+            sum  = 0
+            i += 1
+
+            if i == 8000:
+                break
+        #Checking the right format of the message
+        matches = re.findall("<message type=\"(.*)\" size",new_str)
+        if len(matches) == 0:
+            return (False,None)
+        else:
+            return (True, matches[0])
+
+if __name__ == "__main__":
+    pass
+    nw = Steganography("test/bridge_dog_v.png","vertical")
+    ges = nw.extractMessageFromMedium()
+
+    print(ges)
+    #print(mes,ges)
+    #nw = NewSteganography(hello)
+    #mes = hello.checkIfMessageExists()
+    #print(mes)
